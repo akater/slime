@@ -1,4 +1,4 @@
-;; -*- lexical-binding: t; -*-
+;;; -*- lexical-binding: t -*-
 
 (require 'slime)
 (require 'cl-lib)
@@ -162,9 +162,8 @@ buffer's working directory"
       (let* ((files (mapcar 'slime-from-lisp-filename
                             (slime-eval `(swank:asdf-system-files ,sys-name))))
              (multi-isearch-next-buffer-function
-              (let* 
-                  ((buffers-forward  (mapcar #'find-file-noselect files))
-                   (buffers-backward (reverse buffers-forward)))
+              (let* ((buffers-forward  (mapcar #'find-file-noselect files))
+                     (buffers-backward (reverse buffers-forward)))
                 #'(lambda (current-buffer wrap)
                     ;; Contrarily to the docstring of
                     ;; `multi-isearch-next-buffer-function', the first
@@ -173,14 +172,14 @@ buffer's working directory"
                     (setq current-buffer (or current-buffer (current-buffer)))
                     (let* ((buffers (if isearch-forward
                                         buffers-forward
-                                        buffers-backward)))
+                                      buffers-backward)))
                       (if wrap
                           (car buffers)
-                          (second (memq current-buffer buffers))))))))
+                        (cl-second (memq current-buffer buffers))))))))
         (isearch-forward)))
-    (defun slime-isearch-system ()
-      (interactive)
-      (error "This command is only supported on GNU Emacs >23.1.x.")))
+  (defun slime-isearch-system ()
+    (interactive)
+    (error "This command is only supported on GNU Emacs >23.1.x.")))
 
 (defun slime-read-query-replace-args (format-string &rest format-args)
   (let* ((minibuffer-setup-hook (slime-minibuffer-setup-hook))
