@@ -84,7 +84,8 @@ in the directory of the current buffer."
 
 See also `slime-highlight-compiler-notes' and
 `slime-compilation-finished-hook'."
-  :group 'slime-asdf)
+  :group 'slime-asdf
+  :type 'boolean)
 
 (defun slime-asdf-operation-finished-function (system)
   (if slime-asdf-collect-notes
@@ -199,8 +200,9 @@ buffer's working directory"
       ;; `tags-query-replace' actually uses `query-replace-regexp'
       ;; internally.
       (tags-query-replace (regexp-quote from) to delimited
-                          '(mapcar 'slime-from-lisp-filename
-                            (slime-eval `(swank:asdf-system-files ,name))))
+                          (mapcar 'slime-from-lisp-filename
+                                  (slime-eval
+                                   `(swank:asdf-system-files ,name))))
     (error
      ;; Kludge: `tags-query-replace' does not actually return but
      ;; signals an unnamed error with the below error
@@ -239,9 +241,9 @@ depending on it."
    `(swank:reload-system ,system)
    (slime-asdf-operation-finished-function system)))
 
-(defun slime-who-depends-on (system-name)
+(defun slime-who-depends-on (slime-asdf-system-name)
   (interactive (list (slime-read-system-name)))
-  (slime-xref :depends-on system-name))
+  (slime-xref :depends-on slime-asdf-system-name))
 
 (defun slime-save-system (system)
   "Save files belonging to an ASDF system."
