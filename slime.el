@@ -2407,7 +2407,7 @@ Debugged requests are ignored."
         (slime-pprint-event event (current-buffer)))
       (when (and (boundp 'outline-minor-mode)
                  outline-minor-mode)
-        (hide-entry))
+        (outline-hide-entry))
       (goto-char (point-max)))))
 
 (defun slime-pprint-event (event buffer)
@@ -3080,7 +3080,7 @@ first element of the source-path redundant."
                         (when more (down-list 1))))
           ;; Align at beginning
           (slime-forward-sexp)
-          (beginning-of-sexp))
+          (thing-at-point--beginning-of-sexp))
       (error (goto-char origin)))))
 
 
@@ -3391,7 +3391,7 @@ are supported:
         (condition-case nil
             (progn
               (slime-forward-sexp)
-              (beginning-of-sexp))
+              (thing-at-point--beginning-of-sexp))
           (error (goto-char 0)))))
     (point)))
 
