@@ -105,10 +105,10 @@ the Emacs Lisp package.")
                  :test #'string-equal))))
 
 (defvar slime-lisp-modes '(lisp-mode))
-(defvar slime-contribs '(slime-fancy)
-  "A list of contrib packages to load with SLIME.")
 (define-obsolete-variable-alias 'slime-setup-contribs
 'slime-contribs "2.3.2")
+(defvar slime-contribs '(slime-fancy)
+  "A list of contrib packages to load with SLIME.")
 
 ;;;###autoload
 (cl-defun slime-setup (&optional (contribs nil contribs-p))
@@ -280,7 +280,8 @@ argument."
   "List of functions to perform completion.
 Works like `completion-at-point-functions'.
 `slime--completion-at-point' uses this variable."
-  :group 'slime-mode)
+  :group 'slime-mode
+  :type 'hook)
 
 ;;;;; slime-mode-faces
 
@@ -4982,7 +4983,7 @@ This variable specifies both what was expanded and how.")
     (erase-buffer)
     (insert expansion)
     (goto-char (point-min))
-    (font-lock-fontify-buffer)))
+    (font-lock-ensure)))
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name (slime-buffer-name :macroexpansion)))
