@@ -33,8 +33,7 @@
 
 ;;; Code:
 
-(require 'cl-lib nil t)
-(require 'cl-lib "lib/cl-lib")
+(require 'cl-lib)
 (require 'browse-url)                   ;you need the Emacs 20 version
 (require 'thingatpt)
 
