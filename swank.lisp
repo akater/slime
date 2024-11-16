@@ -1544,10 +1544,11 @@ gracefully."
     (let ((*read-suppress* nil))
       (values (read-from-string string)))))
 
-(defun read-all-forms-from-string (string)
+(defun read-all-forms-from-string (string &optional (readtable *readtable*))
   (with-buffer-syntax ()
     (let ((*read-suppress* nil))
-      (values (read-from-string (concatenate 'string "(" string ")"))))))
+      (values (let ((*readtable* readtable))
+                (read-from-string (concatenate 'string "(" string ")")))))))
 
 (defun parse-string (string package)
   "Read STRING in PACKAGE."
@@ -1756,6 +1757,9 @@ Errors are trapped and invoke our debugger."
         (finish-output)
         (format-values-for-echo-area values)))))
 
+(defmacro until (test &body body)
+  `(loop while (not ,test) do ,@body))
+
 (defun nest (n f x)
   (check-type n (integer 0))
   (check-type f function)
@@ -1771,13 +1775,16 @@ Errors are trapped and invoke our debugger."
 MACROEXP-SPEC is presumed to have prefix  macroexp ."
   (declare (type string macroexp-spec))
   (let ((suffix (subseq macroexp-spec (length "macroexp"))))
-    (or (multiple-value-bind (suffix end) (ignore-errors
-                                           (read-from-string suffix))
-          (when (and end (= end (length suffix))
-                     (integerp suffix))
-            (if (eql 1 suffix)
+    (or (when (zerop (length suffix))
+          'macroexpand-1)
+        (multiple-value-bind (number-suffix end) (ignore-errors
+                                                  (read-from-string suffix))
+          (when (and end (integerp number-suffix)
+                     (= end (length suffix)))
+            (if (eql 1 number-suffix)
                 'macroexpand-1
-              `(lambda (form) (nest ,suffix #'macroexpand-1 form)))))
+                `(lambda (form) (nest ,number-suffix #'macroexpand-1 form)))))
+        (find-symbol macroexp-spec (find-package package-designator))
         (intern macroexp-spec (find-package package-designator)))))
 
 (defmacro fif (test f x)
@@ -1790,8 +1797,12 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
 ;; Support for common-lisp-indent-function in elisp
 ;; (put 'fif 'common-lisp-indent-function '(nil &body))
 
+(deftype constant-symbol () `(or (member t nil) keyword))
+
+(deftype variable-designator () `(and symbol (not constant-symbol)))
+
 (defmacro wrap-if (condition wrapper var &optional (form nil form-supplied-p))
-  (check-type var variable)
+  (check-type var variable-designator)
   `(fif ,condition (lambda (,var) ,wrapper) ,(if form-supplied-p form var)))
 
 (defslimefun eval-and-grab-output
@@ -1818,11 +1829,15 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
         (let* ((dir-prefix (if dir `(let ((*default-pathname-defaults* ,(pathname dir)))) '(progn)))
                (form (let ((forms (read-all-forms-from-string
                                    string
-                                   (read-from-string
-                                    ;; We probably should specify readtable
-                                    ;; on a different level (i.e., where package is specified)
-                                    ;; but I was lazy about it
-                                    readtable))))
+                                   (if readtable
+                                       (or (symbol-value
+                                            (read-from-string
+                                             ;; We probably should specify readtable
+                                             ;; on a different level (i.e., where package is specified)
+                                             ;; but I was lazy about it
+                                             readtable))
+                                           *readtable*)
+                                       *readtable*))))
                        (if macroexp
                            (when forms
                              (let* (last
@@ -1830,8 +1845,8 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                                                 if (cdr rest) collect (car rest)
                                                 else do (setq last (car rest)))))
                                (wrap-if most `(,@dir-prefix
-                                                ,@most
-                                                ,last)
+                                               ,@most
+                                               ,last)
                                         last
                                         `(,(macroexpander macroexp)
                                           ',last))))
