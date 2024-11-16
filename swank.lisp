@@ -1544,6 +1544,11 @@ gracefully."
     (let ((*read-suppress* nil))
       (values (read-from-string string)))))
 
+(defun read-all-forms-from-string (string)
+  (with-buffer-syntax ()
+    (let ((*read-suppress* nil))
+      (values (read-from-string (concatenate 'string "(" string ")"))))))
+
 (defun parse-string (string package)
   "Read STRING in PACKAGE."
   (with-buffer-syntax (package)
@@ -1792,6 +1797,7 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
 (defslimefun eval-and-grab-output
     (string &key (targets-to-capture '(*standard-output* values)
                                      targets-provided-p)
+            dir
             macroexp
             readtable)
   "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
@@ -1809,25 +1815,27 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                    `(if (member ',stream-symbol targets-to-capture)
                         (make-string-output-stream)
                         ,stream-symbol)))
-        (let* ((form (let ((forms (from-string string
-                                               (read-from-string
-                                                ;; We probably should specify readtable
-                                                ;; on a different level (i.e., where package is specified)
-                                                ;; but I was lazy about it
-                                               readtable))))
+        (let* ((dir-prefix (if dir `(let ((*default-pathname-defaults* ,(pathname dir)))) '(progn)))
+               (form (let ((forms (read-all-forms-from-string
+                                   string
+                                   (read-from-string
+                                    ;; We probably should specify readtable
+                                    ;; on a different level (i.e., where package is specified)
+                                    ;; but I was lazy about it
+                                    readtable))))
                        (if macroexp
                            (when forms
                              (let* (last
                                     (most (loop for rest on forms
                                                 if (cdr rest) collect (car rest)
                                                 else do (setq last (car rest)))))
-                               (wrap-if most `(progn
+                               (wrap-if most `(,@dir-prefix
                                                 ,@most
                                                 ,last)
                                         last
                                         `(,(macroexpander macroexp)
                                           ',last))))
-                           `(progn ,@forms))))
+                           `(,@dir-prefix ,@forms))))
                (*trace-output*
                  (maybe-make-string-output-stream *trace-output*))
                (*error-output*
