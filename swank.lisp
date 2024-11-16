@@ -1792,7 +1792,8 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
 (defslimefun eval-and-grab-output
     (string &key (targets-to-capture '(*standard-output* values)
                                      targets-provided-p)
-            macroexp)
+            macroexp
+            readtable)
   "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
@@ -1808,7 +1809,12 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                    `(if (member ',stream-symbol targets-to-capture)
                         (make-string-output-stream)
                         ,stream-symbol)))
-        (let* ((form (let ((forms (from-string string)))
+        (let* ((form (let ((forms (from-string string
+                                               (read-from-string
+                                                ;; We probably should specify readtable
+                                                ;; on a different level (i.e., where package is specified)
+                                                ;; but I was lazy about it
+                                               readtable))))
                        (if macroexp
                            (when forms
                              (let* (last
