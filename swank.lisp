@@ -1826,7 +1826,10 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                    `(if (member ',stream-symbol targets-to-capture)
                         (make-string-output-stream)
                         ,stream-symbol)))
-        (let* ((dir-prefix (if dir `(let ((*default-pathname-defaults* ,(pathname dir)))) '(progn)))
+        (let* ((dir-prefix
+                 (if dir
+                     `(let ((*default-pathname-defaults* ,(pathname dir))))
+                     '(progn)))
                (form (let ((forms (read-all-forms-from-string
                                    string
                                    (if readtable
@@ -1847,9 +1850,9 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                                (wrap-if most `(,@dir-prefix
                                                ,@most
                                                ,last)
-                                        last
-                                        `(,(macroexpander macroexp)
-                                          ',last))))
+                                   last
+                                   `(,(macroexpander macroexp)
+                                     ',last))))
                            `(,@dir-prefix ,@forms))))
                (*trace-output*
                  (maybe-make-string-output-stream *trace-output*))
