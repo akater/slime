@@ -74,6 +74,7 @@
 (require 'xref nil t)
 (require 'compile)
 (require 'gv)
+(require 'compat)
 
 (eval-and-compile
  (require 'apropos))
