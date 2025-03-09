@@ -1812,6 +1812,9 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
             macroexp
             readtable)
   "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
+  (declare (ignore
+            ;; alas
+            macroexp))
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
       (macrolet ((maybe-value-string (form)
@@ -1841,18 +1844,20 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                                              readtable))
                                            *readtable*)
                                        *readtable*))))
-                       (if macroexp
-                           (when forms
-                             (let* (last
-                                    (most (loop for rest on forms
-                                                if (cdr rest) collect (car rest)
-                                                else do (setq last (car rest)))))
-                               (wrap-if most `(,@dir-prefix
-                                               ,@most
-                                               ,last)
-                                   last
-                                   `(,(macroexpander macroexp)
-                                     ',last))))
+                       (progn
+                         ;; The following alternative presumes saner implementation of Emacs' ob-lisp, in particular org-babel-expand-body:lisp
+                         ;; if macroexp
+                         ;;   (when forms
+                         ;;     (let* (last
+                         ;;            (most (loop for rest on forms
+                         ;;                        if (cdr rest) collect (car rest)
+                         ;;                        else do (setq last (car rest)))))
+                         ;;       (wrap-if most `(,@dir-prefix
+                         ;;                       ,@most
+                         ;;                       ,last)
+                         ;;           last
+                         ;;           `(,(macroexpander macroexp)
+                         ;;             ',last))))
                            `(,@dir-prefix ,@forms))))
                (*trace-output*
                  (maybe-make-string-output-stream *trace-output*))
