@@ -1810,11 +1810,14 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                                      targets-provided-p)
             dir
             macroexp
-            readtable)
+            readtable
+            (pprint-wrapper #'funcall))
   "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
   (declare (ignore
             ;; alas
             macroexp))
+  (when (stringp pprint-wrapper)
+    (setf pprint-wrapper (read-from-string pprint-wrapper)))
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
       (macrolet ((maybe-value-string (form)
@@ -1871,7 +1874,10 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
               ;; We picked the reversed binding order.
               (list
                (cons 'values
-                     (maybe-value-string (format nil "~{~S~^~%~}" values)))
+                     (maybe-value-string (funcall pprint-wrapper
+                                                  (lambda ()
+                                                    (format nil "~{~S~^~%~}"
+                                                            values)))))
                (cons '*standard-output*
                      (maybe-output-stream-string *standard-output*))
                (cons '*error-output*
@@ -1882,8 +1888,8 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
               ;; who presume older interface (slime 2.28 or earlier)
               ;; to eval-and-grab-output
               ;; This check (and targets-provided-p argument itself)
-              ;; - can be dropped when Emacs 28 becomes unsupported
-              ;; - can very likely be dropped when Org 9.5 becomes unsupported
+              ;; - can be dropped when old Emacs becomes unsupported
+              ;; - can very likely be dropped when old Org becomes unsupported
               (list (maybe-output-stream-string *standard-output*)
                     (maybe-value-string
                      (format nil "~{~S~^~%~}" values)))))))))
