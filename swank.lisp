@@ -1872,27 +1872,46 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
           (if targets-provided-p
               ;; It is not clear what would be the most natural order here.
               ;; We picked the reversed binding order.
-              (list
-               (cons 'values
-                     (maybe-value-string (funcall pprint-wrapper
-                                                  (lambda ()
-                                                    (format nil "~{~S~^~%~}"
-                                                            values)))))
-               (cons '*standard-output*
-                     (maybe-output-stream-string *standard-output*))
-               (cons '*error-output*
-                     (maybe-output-stream-string *error-output*))
-               (cons '*trace-output*
-                     (maybe-output-stream-string *trace-output*)))
-              ;; targets are not provided by callers
-              ;; who presume older interface (slime 2.28 or earlier)
-              ;; to eval-and-grab-output
-              ;; This check (and targets-provided-p argument itself)
-              ;; - can be dropped when old Emacs becomes unsupported
-              ;; - can very likely be dropped when old Org becomes unsupported
-              (list (maybe-output-stream-string *standard-output*)
-                    (maybe-value-string
-                     (format nil "~{~S~^~%~}" values)))))))))
+              (nconc
+               (list
+                (cons 'values
+                      (maybe-value-string (funcall pprint-wrapper
+                                                   (lambda ()
+                                                     (format nil "~{~S~^~%~}"
+                                                             values)))))
+                (cons '*standard-output*
+                      (maybe-output-stream-string *standard-output*))
+                (cons '*error-output*
+                      (maybe-output-stream-string *error-output*))
+                (cons '*trace-output*
+                      (maybe-output-stream-string *trace-output*)))
+               ;; Here, the order is arbitrary already
+               (when (member 'lisp-implementation-type
+                             targets-to-capture)
+                 (list (cons 'lisp-implementation-type
+                             (or (lisp-implementation-type) "t"))))
+               (when (member "EMACS-MAJOR-VERSION" targets-to-capture
+                             :test #'string-equal)
+                 (list (cons :el-version
+                             ;; Should be
+                             ;; (symbol-value
+                             ;;  (find-symbol "EMACS-MAJOR-VERSION"
+                             ;;               (find-package "EL")))
+                             ;; but emacs-major-version is defined
+                             ;; as symbol macro for now.
+                             (funcall
+                              (find-symbol "EMACS-MAJOR-VERSION"
+                                           (find-package
+                                            "EL-LOADER")))))))
+            ;; targets are not provided by callers
+            ;; who presume older interface (slime 2.28 or earlier)
+            ;; to eval-and-grab-output
+            ;; This check (and targets-provided-p argument itself)
+            ;; - can be dropped when old Emacs becomes unsupported
+            ;; - can very likely be dropped when old Org becomes unsupported
+            (list (maybe-output-stream-string *standard-output*)
+                  (maybe-value-string
+                   (format nil "~{~S~^~%~}" values)))))))))
 
 (defun eval-region (string)
   "Evaluate STRING.
