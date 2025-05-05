@@ -1805,14 +1805,59 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
   (check-type var variable-designator)
   `(fif ,condition (lambda (,var) ,wrapper) ,(if form-supplied-p form var)))
 
+;; (defmacro wrap-if (condition wrapper &body (var &optional (form nil form-supplied-p) &rest _))
+;;   (declare (ignore
+;;             ;; for indentation spec only
+;;             _))
+;;   (check-type var variable-designator)
+;;   `(fif ,condition (lambda (,var) ,wrapper) ,(if form-supplied-p form var)))
+
+(defvar error-indeed nil)
+
+(declaim (inline declarationp))
+(defun declarationp (expr)
+  (and (consp expr) (eq 'declare (car expr))))
+
+(declaim (inline macroexp-locally))
+(defun macroexp-locally (statements-and-forms)
+  (cond
+   ((null statements-and-forms) nil)
+   ((declarationp (car statements-and-forms))
+    `(locally ,@statements-and-forms))
+   ((null (cdr statements-and-forms))
+    (car statements-and-forms))
+   (`(progn ,@statements-and-forms))))
+
+(defmacro handler-case/with-error-indeed (form &body handlers)
+  `(handler-case ,form
+     ,@(loop for clause in handlers
+             collect `(,(car clause) ,(cadr clause) (setq error-indeed t)
+                       ,(macroexp-locally (cddr clause))))))
+
+(defmacro maybe-return-error (&body body)
+  "Execute BODY forms as usual; return a readable expression describing the error if it is signalled."
+  `(handler-case/with-error-indeed ,(macroexp-locally body)
+     (cell-error (e) (list (class-name (class-of e))
+                           (cell-error-name e)))
+     (simple-condition (c) (apply #'format nil
+                                  (simple-condition-format-control c)
+                                  (simple-condition-format-arguments c)))
+     (type-error (e) (list 'type-error :expected (type-error-expected-type e)
+                                       :got (type-error-datum e)))
+     (error (e) (class-name (class-of e)))))
+
 (defslimefun eval-and-grab-output
     (string &key (targets-to-capture '(*standard-output* values)
                                      targets-provided-p)
             dir
             macroexp
+            return-error
             readtable
-            (pprint-wrapper #'funcall))
+            (pprint-wrapper #'funcall) &aux error-indeed)
   "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
+  ;; For now,
+  ;; :results errors in Org fetches the contents of error-stream
+  ;; :results error  in Org returns (a readable) error expression if it is signalled
   (declare (ignore
             ;; alas
             macroexp))
@@ -1833,35 +1878,37 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                         (make-string-output-stream)
                         ,stream-symbol)))
         (let* ((dir-prefix
-                 (if dir
-                     `(let ((*default-pathname-defaults* ,(pathname dir))))
-                     '(progn)))
-               (form (let ((forms (read-all-forms-from-string
-                                   string
-                                   (if readtable
-                                       (or (symbol-value
-                                            (read-from-string
-                                             ;; We probably should specify readtable
-                                             ;; on a different level (i.e., where package is specified)
-                                             ;; but I was lazy about it
-                                             readtable))
-                                           *readtable*)
-                                       *readtable*))))
-                       (progn
-                         ;; The following alternative presumes saner implementation of Emacs' ob-lisp, in particular org-babel-expand-body:lisp
-                         ;; if macroexp
-                         ;;   (when forms
-                         ;;     (let* (last
-                         ;;            (most (loop for rest on forms
-                         ;;                        if (cdr rest) collect (car rest)
-                         ;;                        else do (setq last (car rest)))))
-                         ;;       (wrap-if most `(,@dir-prefix
-                         ;;                       ,@most
-                         ;;                       ,last)
-                         ;;           last
-                         ;;           `(,(macroexpander macroexp)
-                         ;;             ',last))))
-                           `(,@dir-prefix ,@forms))))
+                (if dir
+                    `(let ((*default-pathname-defaults* ,(pathname dir))))
+                  '(progn)))
+               (form (wrap-if return-error `(maybe-return-error ,form)
+                         form
+                         (let ((forms (read-all-forms-from-string
+                                       string
+                                       (if readtable
+                                           (or (symbol-value
+                                                (read-from-string
+                                                 ;; We probably should specify readtable
+                                                 ;; on a different level (i.e., where package is specified)
+                                                 ;; but I was lazy about it
+                                                 readtable))
+                                               *readtable*)
+                                         *readtable*))))
+                           (progn
+                             ;; The following alternative presumes saner implementation of Emacs' ob-lisp, in particular org-babel-expand-body:lisp
+                             ;; if macroexp
+                             ;;   (when forms
+                             ;;     (let* (last
+                             ;;            (most (loop for rest on forms
+                             ;;                        if (cdr rest) collect (car rest)
+                             ;;                        else do (setq last (car rest)))))
+                             ;;       (wrap-if most `(,@dir-prefix
+                             ;;                       ,@most
+                             ;;                       ,last)
+                             ;;           last
+                             ;;           `(,(macroexpander macroexp)
+                             ;;             ',last))))
+                             `(,@dir-prefix ,@forms)))))
                (*trace-output*
                  (maybe-make-string-output-stream *trace-output*))
                (*error-output*
@@ -1902,7 +1949,9 @@ MACROEXP-SPEC is presumed to have prefix  macroexp ."
                              (funcall
                               (find-symbol "EMACS-MAJOR-VERSION"
                                            (find-package
-                                            "EL-LOADER")))))))
+                                            "EL-LOADER"))))))
+               (when (and return-error error-indeed)
+                 (list (cons :error-indeed error-indeed))))
             ;; targets are not provided by callers
             ;; who presume older interface (slime 2.28 or earlier)
             ;; to eval-and-grab-output
