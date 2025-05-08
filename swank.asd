@@ -1,11 +1,6 @@
 ;;; -*- lisp -*-
 
-;; ASDF system definition for loading the Swank server independently
-;; of Emacs.
-;;
-;; This is only useful if you want to start a Swank server in a Lisp
-;; processes that doesn't run under Emacs. Lisp processes created by
-;; `M-x slime' automatically start the server.
+;; ASDF system definition
 
 ;; Usage:
 ;;
@@ -15,6 +10,12 @@
 ;; After which, the Swank server is running on localhost:4005. You can
 ;; use `M-x slime-connect' to connect Emacs to it.
 ;;
+;; Lisp processes created with `M-x slime' start the server automatically.
+;; They do not necessarily load this system to do that.
+;; swank-loader is provided to compile and load Swank independently of ASDF;
+;; see the Emacs Lisp variable slime-use-swank-loader defined in slime.el.
+;; The system should not be expected to be defined if swank-loader is used.
+
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
 

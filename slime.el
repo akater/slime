@@ -1246,20 +1246,65 @@ See `slime-start'."
     slime-inferior-lisp-args))
 
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
+(defvar slime-use-standard-asdf-cache-for-swank nil
+  "If true, set swank-loader:*fasl-directory* to standard ASDF cache directory.
+
+If true, FASLs will be stored where ASDF puts them by default.
+Otherwise, they will usually be in (subdirectories of) ~/.slime/fasl/.
+See the definition of *fasl-directory* in swank-loader.lisp.
+
+This variable only has an effect when `slime-use-swank-loader' is non-nil.")
+(defvar slime-include-slime-path-into-asdf-source-registry t
+  "If true, do register `slime-path' in ASDF in `slime-init-command'.")
+(defvar slime-use-swank-loader t
+  "If nil, load Swank with ASDF.
+
+Note that swank-loader is still compiled by ASDF in this case,
+because it remains a component of the system defined in swank.asd.
+
+If nil, ASDF is presumed to have compute-source-registry.")
 (defun slime-init-command (port-filename _coding-system)
   "Return a string to initialize Lisp."
   (let ((loader (if (file-name-absolute-p slime-backend)
                     slime-backend
                   (concat slime-path slime-backend))))
-    ;; Return a single form to avoid problems with buffered input.
-    (format "%S\n\n"
-            `(progn
-               (load ,(slime-to-lisp-filename (expand-file-name loader))
-                     :verbose t)
-               (funcall (read-from-string "swank-loader:init")
-                        :from-emacs t)
-               (funcall (read-from-string "swank:start-server")
-                        ,(slime-to-lisp-filename port-filename))))))
+    (cl-flet ((compute-source-registry-forms ()
+                ;; Computing source registry is optional,
+                ;; hence the return value is a list of forms,
+                ;; so that an empty list could be spliced.
+                (when slime-include-slime-path-into-asdf-source-registry
+                  `((asdf:compute-source-registry
+                     '(:source-registry (:directory ,slime-path)
+                                        :inherit-configuration))))))
+      (format
+       "%S\n\n"
+       ;; Return a single form to avoid problems with buffered input.
+       `(progn
+          ,@(if slime-use-swank-loader
+                `((load ,(slime-to-lisp-filename (expand-file-name loader))
+                        :verbose t)
+                  ,@(when slime-use-standard-asdf-cache-for-swank
+                      `((when (member :asdf3
+                                      ;; TODO: Check for the earliest version
+                                      ;; that has all these:
+                                      ;; - compute-source-registry
+                                      ;; - apply-output-translations
+                                      ;; - system-source-directory
+                                      *features*)
+                          ,@(compute-source-registry-forms)
+                          (set (find-symbol "*FASL-DIRECTORY*" "SWANK-LOADER")
+                               (asdf:apply-output-translations
+                                ;; This apply-output-translations form
+                                ;; is copied from swank.asd.
+                                ;; If one is changed,
+                                ;; the other probably better be, too.
+                                (asdf:system-source-directory :swank))))))
+                  (funcall (find-symbol "INIT" "SWANK-LOADER")
+                           :from-emacs t))
+              `(,@(compute-source-registry-forms)
+                (asdf:load-system :swank)))
+          (funcall (find-symbol "START-SERVER" "SWANK")
+                   ,(slime-to-lisp-filename port-filename)))))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
