@@ -5,7 +5,13 @@
 
 (defpackage swank-repl
   (:use cl swank/backend)
-  (:export *send-repl-results-function*)
+  (:export *send-repl-results-function*
+           clear-repl-variables
+           create-repl
+           listener-eval
+           listener-get-value
+           listener-save-value
+           redirect-trace-output)
   (:import-from
    swank
 
