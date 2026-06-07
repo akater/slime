@@ -87,6 +87,7 @@ When :STARTED-FROM-EMACS redirect when launched by M-x slime")
 (defun open-streams (connection properties)
   "Return the 4 streams for IO redirection:
 INPUT OUTPUT IO REPL-RESULTS"
+  (declare (ignore properties))
   (let* ((input-fn
            (lambda ()
              (with-connection (connection)
